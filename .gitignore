@@ -1,5 +1,9 @@
 # Folders
 .vscode
+.build
+directives
+controller
 
 #Files
 *.exe
+*.exe~
