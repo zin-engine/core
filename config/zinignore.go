@@ -1,27 +1,33 @@
 package config
 
 import (
-	"os"
 	"path/filepath"
 	"strings"
+	"zin-engine/utils"
 )
 
-func CheckZinIgnore(rootDir string, requestPath string) bool {
+func CheckZinIgnore(rootDir string, path string) bool {
 	ignoreFile := filepath.Join(rootDir, ".zinignore")
+	path = filepath.Clean(path)
 
-	if requestPath == "/.zinignore" {
+	if path == "/.zinignore" {
 		return true
 	}
 
-	// Check if the file exists,
-	// If not then allow all files to be served to client
-	data, err := os.ReadFile(ignoreFile)
-	if err != nil {
+	// As .zinignore is not on root, expose all files
+	if !utils.FileExists(ignoreFile) {
 		return false
 	}
 
-	// Split into lines
-	lines := strings.Split(string(data), "\n")
+	// Get .zinignore file content
+	// Block all request, as .zinignore is there but failed to get contents
+	data, err := utils.GetFileContent(ignoreFile)
+	if err != nil {
+		return true
+	}
+
+	// Split into lines & loop to check if current path is blocked
+	lines := strings.Split(data, "\n")
 
 	for _, line := range lines {
 		entry := strings.TrimSpace(line)
@@ -29,9 +35,9 @@ func CheckZinIgnore(rootDir string, requestPath string) bool {
 			continue
 		}
 
-		// When requestPath matches a zinignore entry
-		entry = "/" + entry
-		if entry == requestPath {
+		// Normalize and compare zinignore entry with the path
+		entry = filepath.Clean("/" + strings.TrimSpace(entry))
+		if entry == path {
 			return true
 		}
 	}
