@@ -19,7 +19,7 @@ type RequestContext struct {
 	Root          string
 	ContentType   string
 	ContentSource string
-	ServerError   string
+	ServerError   map[string]string
 	Query         url.Values
 	Headers       map[string]string
 	CustomVar     CustomVar

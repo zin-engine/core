@@ -15,6 +15,12 @@ import (
 	"zin-engine/utils"
 )
 
+const zinVersion = "zin/1.0"
+
+var (
+	currentRoot string
+)
+
 func HandleConnection(ctx context.Context, conn net.Conn) {
 	defer conn.Close()
 
@@ -38,13 +44,16 @@ func HandleConnection(ctx context.Context, conn net.Conn) {
 		// Read the X-Root-Dir header
 		rootDir := req.Header.Get("X-Root-Dir")
 		if rootDir == "" {
-			PrintErrorOnClient(conn, 500, req.URL.Path, "ERROR: Missing X-Root-Dir header")
+			PrintErrorOnClient(conn, 500, req.URL.Path, "Oops! Missing X-Root-Dir header")
 			return
 		}
 
+		// IDK why I'm doing this XD
+		currentRoot = rootDir
+
 		// Only GET & POST req.methods are allowed
 		if req.Method != "GET" && req.Method != "POST" {
-			PrintErrorOnClient(conn, 405, req.URL.Path, "ERROR: Method Not Allowed")
+			PrintErrorOnClient(conn, 405, req.URL.Path, "Oops! Method Not Allowed")
 			return
 		}
 
@@ -55,14 +64,14 @@ func HandleConnection(ctx context.Context, conn net.Conn) {
 		}
 
 		// Get file to serve & check if listed in .zinignore
-		path := GetFilePathFromURI(req.URL.Path)
+		path := utils.GetFilePathFromURI(req.URL.Path)
 		if config.CheckZinIgnore(rootDir, path) {
-			PrintErrorOnClient(conn, 403, path, "Error: You do not have permission to access this file")
+			PrintErrorOnClient(conn, 403, path, "Forbidden — You do not have permission to access this file")
 			return
 		}
 
 		// Compose session content
-		ctx := ComposeSessionContent(conn, req, rootDir)
+		ctx := ComposeSessionContext(conn, req, rootDir)
 
 		// Handle form submission
 		if req.Method == http.MethodPost && strings.HasPrefix(path, "/bro-form") {
@@ -83,7 +92,7 @@ func HandleConnection(ctx context.Context, conn net.Conn) {
 	}
 }
 
-func ComposeSessionContent(conn net.Conn, req *http.Request, rootDir string) model.RequestContext {
+func ComposeSessionContext(conn net.Conn, req *http.Request, rootDir string) model.RequestContext {
 	ctx := model.RequestContext{
 		ClientIp:      conn.RemoteAddr().String(),
 		Method:        req.Method,
@@ -92,7 +101,7 @@ func ComposeSessionContent(conn net.Conn, req *http.Request, rootDir string) mod
 		Root:          rootDir,
 		ContentType:   "text/plain",
 		ContentSource: req.URL.Path,
-		ServerError:   "",
+		ServerError:   make(map[string]string),
 		Query:         req.URL.Query(),
 		Headers:       make(map[string]string),
 		CustomVar: model.CustomVar{
@@ -111,25 +120,11 @@ func ComposeSessionContent(conn net.Conn, req *http.Request, rootDir string) mod
 	}
 
 	// Set content source & type
-	path := GetFilePathFromURI(req.URL.Path)
+	path := utils.GetFilePathFromURI(req.URL.Path)
 	ctx.ContentSource = filepath.Join(rootDir, filepath.FromSlash(path))
 	ctx.ContentType = utils.GetMineTypeFromPath(path)
 
 	return ctx
-}
-
-func GetFilePathFromURI(path string) string {
-
-	if path == "/" {
-		path = "/index.html"
-	}
-
-	ext := filepath.Ext(path)
-	if ext == "" {
-		return path + ".html"
-	}
-
-	return path
 }
 
 func HandleSourceRender(conn net.Conn, req *http.Request, ctx *model.RequestContext) {
@@ -145,8 +140,15 @@ func HandleSourceRender(conn net.Conn, req *http.Request, ctx *model.RequestCont
 		return
 	}
 
-	// ToDo: Parse & Apply Directives
+	// Parse zin-tags & Apply Directives
 	content = directives.ParseAndApply(content, ctx)
+
+	// Check for errors during directive parsing
+	if len(ctx.ServerError) > 0 {
+		content := ComposeServerErrorContent(ctx)
+		PrintErrorOnClient(conn, 500, req.URL.Path, content)
+		return
+	}
 
 	// Finally Load Page Content
 	SendPageContent(conn, content)
@@ -185,4 +187,19 @@ func HandleExistenceAndRedirect(conn net.Conn, req *http.Request, ctx *model.Req
 	}
 
 	return false
+}
+
+func ComposeServerErrorContent(ctx *model.RequestContext) string {
+
+	config := utils.GetValue(ctx, "SHOW_ERRORS", "OFF", true)
+	if config != "ON" {
+		return ctx.ServerError["title"]
+	}
+
+	// Display detailed error
+	content := fmt.Sprintf(`<h4>%s</h4>`, ctx.ServerError["title"])
+	content += fmt.Sprintf(`<p>%s</p>`, utils.SanitizeContent(ctx.ServerError["reason"]))
+	content += fmt.Sprintf(`<br><details><summary>View Code Block</summary><code>%s</code></details>`, utils.SanitizeContent(ctx.ServerError["code"]))
+
+	return content
 }

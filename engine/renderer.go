@@ -9,8 +9,6 @@ import (
 	"zin-engine/utils"
 )
 
-const zinVersion = "zin/1.0"
-
 func ConnTimeOut(conn net.Conn) {
 	status := 408
 	conn.Write([]byte(fmt.Sprintf("HTTP/1.1 %d %s\r\n", status, http.StatusText(status))))
@@ -24,7 +22,7 @@ func ConnTimeOut(conn net.Conn) {
 
 func PrintErrorOnClient(conn net.Conn, status int, path string, content string) {
 	// Get final content to print on client
-	content = utils.GetStatusCodeFileContent(status, path, content)
+	content = utils.GetStatusCodeFileContent(status, currentRoot, content)
 
 	// Write the HTTP response
 	conn.Write([]byte(fmt.Sprintf("HTTP/1.1 %d %s\r\n", status, http.StatusText(status))))
@@ -60,7 +58,7 @@ func Favicon(conn net.Conn, rootDir string) {
 
 func SendRawFile(conn net.Conn, path string, contentType string) {
 
-	fmt.Printf(">> Resolve: %s", path)
+	fmt.Printf(">> Resolve: %s\n>> ContentType: %s\n", path, contentType)
 
 	// Open the file
 	f, err := os.Open(path)

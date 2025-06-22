@@ -22,12 +22,12 @@ func GetStatusCodeFileContent(status int, path string, content string) string {
 	filePath := filepath.Join(path, fileName)
 
 	// Check if the file exists at the given path,
-	// Or look for the file in the executable root under /view/
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
 		exePath, err := os.Executable()
 		if err != nil {
 			return content
 		}
+		// Set path to default from the executable root under /public/views/
 		filePath = filepath.Join(filepath.Dir(exePath), "public", "views", fileName)
 
 	}
@@ -39,7 +39,7 @@ func GetStatusCodeFileContent(status int, path string, content string) string {
 	}
 
 	// Replace the file content to show error on client
-	fileContent = strings.Replace(fileContent, "{{.SERVER_ERROR}}", content, 1)
+	fileContent = strings.Replace(fileContent, "{{.ERROR_SUMMARY}}", content, 1)
 
 	return fileContent
 }
@@ -54,7 +54,7 @@ func GetFaviconIconPath(rootDir string, path string) string {
 		}
 
 		// Use the default path from the zin-exe root
-		path = filepath.Join(filepath.Dir(exePath), "media", "favicon.ico")
+		path = filepath.Join(filepath.Dir(exePath), "public", "favicon.ico")
 	}
 
 	return path
