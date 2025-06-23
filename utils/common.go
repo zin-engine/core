@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"html"
 	"path/filepath"
 	"strings"
 )
@@ -19,9 +20,8 @@ func GetFilePathFromURI(path string) string {
 	return path
 }
 
-func SanitizeContent(content string) string {
-	content = strings.ReplaceAll(content, "<", "&lt;")
-	return strings.ReplaceAll(content, ">", "&gt;")
+func SanitizeHTML(content string) string {
+	return html.EscapeString(content)
 }
 
 func ReplaceContent(content string, target string, value string) string {

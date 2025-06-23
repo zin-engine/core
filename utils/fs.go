@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/yuin/goldmark"
 )
 
 func GetFileContent(path string) (string, error) {
@@ -79,4 +81,31 @@ func GetMineTypeFromPath(path string) string {
 func FileExists(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil || !os.IsNotExist(err)
+}
+
+func GetFileType(path string) string {
+	ext := strings.ToLower(filepath.Ext(path))
+	switch ext {
+	case ".html":
+		return "HTML"
+	case ".css":
+		return "CSS"
+	case ".js":
+		return "JS"
+	case ".md":
+		return "MD"
+	case ".txt":
+		return "TXT"
+	default:
+		return ""
+	}
+}
+
+func ParseMdToHTML(content string) string {
+	var buf strings.Builder
+	if err := goldmark.Convert([]byte(content), &buf); err != nil {
+		return content
+	}
+
+	return buf.String()
 }

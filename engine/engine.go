@@ -198,8 +198,8 @@ func ComposeServerErrorContent(ctx *model.RequestContext) string {
 
 	// Display detailed error
 	content := fmt.Sprintf(`<h4>%s</h4>`, ctx.ServerError["title"])
-	content += fmt.Sprintf(`<p>%s</p>`, utils.SanitizeContent(ctx.ServerError["reason"]))
-	content += fmt.Sprintf(`<br><details><summary>View Code Block</summary><code>%s</code></details>`, utils.SanitizeContent(ctx.ServerError["code"]))
+	content += fmt.Sprintf(`<p>%s</p>`, utils.SanitizeHTML(ctx.ServerError["reason"]))
+	content += fmt.Sprintf(`<br><details><summary>View Code Block</summary><code>%s</code></details>`, utils.SanitizeHTML(ctx.ServerError["code"]))
 
 	return content
 }
