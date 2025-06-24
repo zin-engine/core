@@ -22,7 +22,7 @@ func ConnTimeOut(conn net.Conn) {
 
 func PrintErrorOnClient(conn net.Conn, status int, path string, content string) {
 	// Get final content to print on client
-	content = utils.GetStatusCodeFileContent(status, currentRoot, content)
+	content = utils.GetStatusCodeFileContent(status, rootDir, content)
 
 	// Write the HTTP response
 	conn.Write([]byte(fmt.Sprintf("HTTP/1.1 %d %s\r\n", status, http.StatusText(status))))

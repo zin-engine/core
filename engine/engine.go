@@ -15,24 +15,25 @@ import (
 	"zin-engine/utils"
 )
 
-const zinVersion = "zin/1.0"
-
 var (
-	currentRoot string
+	rootDir    string
+	zinVersion string
 )
 
-func HandleConnection(ctx context.Context, conn net.Conn) {
+func HandleConnection(ctx context.Context, conn net.Conn, root string, version string) {
 	defer conn.Close()
 
+	zinVersion = version
 	reader := bufio.NewReader(conn)
 	req, err := http.ReadRequest(reader)
 	if err != nil {
-		PrintErrorOnClient(conn, 500, req.URL.Path, fmt.Sprintf("Invalid request: %s", err.Error()))
+		PrintErrorOnClient(conn, 500, "<untracked>", fmt.Sprintf("Invalid request: %v", err))
 		return
 	}
 
 	// Log Request
 	fmt.Printf("\n----->>>> HTTP/1.1 %s [%s] %s\n", req.Method, conn.RemoteAddr().String(), req.URL.Path)
+	fmt.Printf(">> Host: %s\n", req.Host)
 
 	// Handle Request
 	select {
@@ -42,14 +43,29 @@ func HandleConnection(ctx context.Context, conn net.Conn) {
 		return
 	default:
 		// Read the X-Root-Dir header
-		rootDir := req.Header.Get("X-Root-Dir")
-		if rootDir == "" {
-			PrintErrorOnClient(conn, 500, req.URL.Path, "Oops! Missing X-Root-Dir header")
+		rootDir = req.Header.Get("X-Root-Dir")
+
+		// Reset rootDir from configured directory
+		if rootDir == "" && root != "" {
+			rootDir = root
+		}
+
+		// In case client is visiting 127.0.0.*:900* & root is not configured
+		if rootDir == "" && req.URL.Path == "/" && (strings.Contains(req.Host, "127.0.0") || strings.Contains(req.Host, "host:900")) {
+			PrintErrorOnClient(conn, 200, "/", "")
 			return
 		}
 
-		// IDK why I'm doing this XD
-		currentRoot = rootDir
+		// Handle other route when root-dir is not configured
+		if rootDir == "" {
+			PrintErrorOnClient(conn, 500, req.URL.Path, "Missing X-Root-Dir on nginx server configuration.")
+			return
+		}
+
+		// Handle zin-default paths
+		if HandleDefaultLoads(conn, req) {
+			return
+		}
 
 		// Only GET & POST req.methods are allowed
 		if req.Method != "GET" && req.Method != "POST" {
@@ -71,7 +87,7 @@ func HandleConnection(ctx context.Context, conn net.Conn) {
 		}
 
 		// Compose session content
-		ctx := ComposeSessionContext(conn, req, rootDir)
+		ctx := ComposeSessionContext(conn, req)
 
 		// Handle form submission
 		if req.Method == http.MethodPost && strings.HasPrefix(path, "/bro-form") {
@@ -92,7 +108,7 @@ func HandleConnection(ctx context.Context, conn net.Conn) {
 	}
 }
 
-func ComposeSessionContext(conn net.Conn, req *http.Request, rootDir string) model.RequestContext {
+func ComposeSessionContext(conn net.Conn, req *http.Request) model.RequestContext {
 	ctx := model.RequestContext{
 		ClientIp:      conn.RemoteAddr().String(),
 		Method:        req.Method,
@@ -127,6 +143,28 @@ func ComposeSessionContext(conn net.Conn, req *http.Request, rootDir string) mod
 	return ctx
 }
 
+func HandleDefaultLoads(conn net.Conn, req *http.Request) bool {
+	// Favicon icon request
+	if req.URL.Path == "/favicon.ico" {
+		Favicon(conn, rootDir)
+		return true
+	}
+
+	if req.URL.Path == "/zin-assets/engine.css" {
+		path := utils.GetExeAssetPath("engine.css")
+		SendRawFile(conn, path, "text/css")
+		return true
+	}
+
+	if req.URL.Path == "/zin-assets/engine.js" {
+		path := utils.GetExeAssetPath("engine.js")
+		SendRawFile(conn, path, "text/javascript")
+		return true
+	}
+
+	return false
+}
+
 func HandleSourceRender(conn net.Conn, req *http.Request, ctx *model.RequestContext) {
 
 	if HandleExistenceAndRedirect(conn, req, ctx) {
@@ -148,6 +186,11 @@ func HandleSourceRender(conn net.Conn, req *http.Request, ctx *model.RequestCont
 		content := ComposeServerErrorContent(ctx)
 		PrintErrorOnClient(conn, 500, req.URL.Path, content)
 		return
+	}
+
+	// Inject Zin-Assets In Case SHOW_ERROR is ON
+	if utils.GetValue(ctx, "SHOW_ERRORS", "OFF", true) == "ON" {
+		content = utils.InjectZinScriptAndStyle(content)
 	}
 
 	// Finally Load Page Content

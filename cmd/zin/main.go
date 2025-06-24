@@ -2,59 +2,51 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"net"
 	"time"
 	"zin-engine/engine"
+	"zin-engine/utils"
 )
+
+const zinVersion = "zin/1.0"
 
 func main() {
 
-	port := ":9001"
-	listener, err := net.Listen("tcp", port)
+	// Define flags
+	port := flag.String("p", "9001", "Port to listen on")
+	rootDir := flag.String("r", "", "Root directory path")
+
+	// Parse command-line flags
+	flag.Parse()
+	utils.PrintASCII(*port, *rootDir, zinVersion)
+
+	// Start the engine
+	address := ":" + *port
+	listener, err := net.Listen("tcp", address)
 	if err != nil {
-		fmt.Printf("Error starting TCP server: %s | File: %s", err.Error(), "main.go")
+		fmt.Printf("Error starting TCP server:\n %v", err)
 		return
 	}
 	defer listener.Close()
+	fmt.Printf("\n✅ Listening to requests...\n")
 
-	fmt.Println("\n ")
-	fmt.Println("  ______  _____   _   _  ")
-	fmt.Println(" |___  / |_   _| | \\ | | ")
-	fmt.Println("    / /    | |   |  \\| | ")
-	fmt.Println("   / /     | |   | . ` | ")
-	fmt.Println("  / /__   _| |_  | |\\  | ")
-	fmt.Println(" /_____| |_____| |_| \\_| ")
-	fmt.Println("• Version : zin 1.0")
-	fmt.Println("• Port    : 9001")
-	fmt.Println("• Local   : http://127.0.0.1:9001")
-	fmt.Println("\n✅ Listening to requests...")
-
+	// Handle Incoming connections
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
-			fmt.Printf("Failed to accept connection: %s | File: %s", err.Error(), "main.go")
+			fmt.Printf("Failed to accept: %v", err)
 			continue
 		}
+
 		go func(conn net.Conn) {
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
 
-			done := make(chan struct{})
-
-			go func() {
-				engine.HandleConnection(ctx, conn)
-				close(done)
-			}()
-
-			select {
-			case <-ctx.Done():
-				fmt.Println("\n<<<<----- TIMEOUT-EXIT")
-				conn.Close()
-			case <-done:
-				// connection handled successfully
-				fmt.Println("\n<<<<----- END")
-			}
+			// Send request to engine
+			engine.HandleConnection(ctx, conn, *rootDir, zinVersion)
+			fmt.Println("\n<<<<----- END")
 		}(conn)
 	}
 }
