@@ -109,3 +109,13 @@ func ParseMdToHTML(content string) string {
 
 	return buf.String()
 }
+
+func GetExeAssetPath(file string) string {
+	exePath, err := os.Executable()
+	if err != nil {
+		return file
+	}
+
+	file = filepath.Join(filepath.Dir(exePath), "public", "assets", file)
+	return file
+}
