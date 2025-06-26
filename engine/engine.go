@@ -62,20 +62,14 @@ func HandleConnection(ctx context.Context, conn net.Conn, root string, version s
 			return
 		}
 
-		// Handle zin-default paths
-		if HandleDefaultLoads(conn, req) {
-			return
-		}
-
 		// Only GET & POST req.methods are allowed
 		if req.Method != "GET" && req.Method != "POST" {
 			PrintErrorOnClient(conn, 405, req.URL.Path, "Oops! Method Not Allowed")
 			return
 		}
 
-		// Favicon icon request
-		if req.URL.Path == "/favicon.ico" {
-			Favicon(conn, rootDir)
+		// Handle zin-default paths
+		if HandleDefaultLoads(conn, req) {
 			return
 		}
 
