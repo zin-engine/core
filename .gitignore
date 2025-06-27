@@ -1,7 +1,9 @@
 # Folders
 .vscode
 .build
+.junk
 controller
+docs
 
 #Files
 *.exe
