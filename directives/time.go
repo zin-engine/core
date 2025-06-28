@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 	"zin-engine/model"
+	"zin-engine/utils"
 )
 
 func TimeDirectives(content string, ctx *model.RequestContext) string {
@@ -14,6 +15,9 @@ func TimeDirectives(content string, ctx *model.RequestContext) string {
 	if !strings.Contains(content, "<zin-time") {
 		return content
 	}
+
+	// TimeZone if configured in env to be used as default
+	timeZone := utils.GetValue(ctx, "TIME_ZONE", "Local", true)
 
 	// Match all self-closing zin-time tags
 	re := regexp.MustCompile(`<zin-time([^>]*)\/>`)
@@ -43,6 +47,11 @@ func TimeDirectives(content string, ctx *model.RequestContext) string {
 			replacement := SetInlineError(fmt.Sprintf("Failed to load: %s", fullTag), fmt.Sprintf("Invalid when: %v", err))
 			content = strings.Replace(content, fullTag, replacement, 1)
 			continue
+		}
+
+		// If timezone is not configured in tag then set to default
+		if tz == "" {
+			tz = timeZone
 		}
 
 		// Handle timezone
