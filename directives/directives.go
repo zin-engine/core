@@ -21,9 +21,12 @@ func ParseAndApply(content string, ctx *model.RequestContext) string {
 	// List of directives to apply
 	directives := []Directive{
 		IncludeDirective,
+		SetVarDirectives,
 		TimeDirectives,
 		RandomDirective,
 		HashDirective,
+		ReplaceVariables,
+		HighlightUnsupportedTags,
 	}
 
 	// Apply each directive in order, stop if errors found

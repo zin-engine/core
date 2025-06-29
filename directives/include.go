@@ -47,7 +47,7 @@ func processZinIncludes(ctx *model.RequestContext, input string, depth int, seen
 		}
 
 		includedFile := parts[1]
-		formatter := parts[2]
+		formatter := strings.ToUpper(parts[2])
 		fileType := utils.GetFileType(includedFile)
 
 		if fileType == "" {
@@ -69,7 +69,7 @@ func processZinIncludes(ctx *model.RequestContext, input string, depth int, seen
 		// Recursively process includes in the included file
 		content = processZinIncludes(ctx, content, depth+1, seen)
 
-		if formatter == "RAW_CONTENT" {
+		if formatter == "RAW" {
 			if fileType == "HTML" {
 				return utils.SanitizeHTML(content)
 			}
