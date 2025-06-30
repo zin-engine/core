@@ -14,7 +14,7 @@ import (
 func GetFileContent(path string) (string, error) {
 	f, err := os.ReadFile(path)
 	if err != nil {
-		return "", fmt.Errorf("template read error: %v", err)
+		return "", fmt.Errorf("unable to read file: %s. %v", path, err)
 	}
 	return string(f), nil
 }
