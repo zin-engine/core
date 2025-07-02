@@ -20,7 +20,7 @@ var (
 
 // ProcessZinDataTags validates and rewrites <zin-data> tags
 func DataDirectives(content string, ctx *model.RequestContext) string {
-	// No hash directive, return unchanged
+	// No data directive, return unchanged
 	if !strings.Contains(content, "<zin-data") {
 		return content
 	}
