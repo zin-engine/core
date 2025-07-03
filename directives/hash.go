@@ -1,15 +1,11 @@
 package directives
 
 import (
-	"crypto/md5"
-	"crypto/sha256"
-	"crypto/sha512"
-	"encoding/base64"
-	"encoding/hex"
 	"fmt"
 	"regexp"
 	"strings"
 	"zin-engine/model"
+	"zin-engine/utils"
 )
 
 var (
@@ -40,33 +36,10 @@ func HashDirective(content string, ctx *model.RequestContext) string {
 
 		// Append or prepend salt (for now, simple append)
 		input := value + salt
+		result, err := utils.ComposeHash(input, algo, output)
 
-		// Choose hashing algorithm
-		var hash []byte
-		switch algo {
-		case "md5":
-			h := md5.Sum([]byte(input))
-			hash = h[:]
-		case "sha1":
-			h := sha256.Sum224([]byte(input))
-			hash = h[:]
-		case "sha256":
-			h := sha256.Sum256([]byte(input))
-			hash = h[:]
-		case "sha512":
-			h := sha512.Sum512([]byte(input))
-			hash = h[:]
-		default:
-			return SetInlineError(fmt.Sprintf("Failed To Load: %s", tag), "Unsupported algorithm. Use one of: md5, sha1, sha256, sha512.")
-		}
-
-		// Default to hex if not specified or invalid
-		var result string
-		switch output {
-		case "base64":
-			result = base64.StdEncoding.EncodeToString(hash)
-		default:
-			result = hex.EncodeToString(hash)
+		if err != nil {
+			return SetInlineError(fmt.Sprintf("Failed To Load: %s", tag), err.Error())
 		}
 
 		return result
