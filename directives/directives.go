@@ -27,6 +27,7 @@ func ParseAndApply(content string, ctx *model.RequestContext) string {
 		HashDirective,
 		DataDirectives,
 		LoopDirectives,
+		FormDirective,
 		ReplaceVariables,
 		HighlightUnsupportedTags,
 	}

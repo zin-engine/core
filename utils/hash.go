@@ -83,7 +83,7 @@ func Decrypt(encoded, key string) (string, error) {
 
 	nonceSize := aesGCM.NonceSize()
 	if len(data) < nonceSize {
-		return "", fmt.Errorf("cipherText too short")
+		return "", fmt.Errorf("cipherText is too short")
 	}
 
 	nonce, cipherText := data[:nonceSize], data[nonceSize:]

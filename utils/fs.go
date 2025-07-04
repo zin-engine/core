@@ -19,6 +19,25 @@ func GetFileContent(path string) (string, error) {
 	return string(f), nil
 }
 
+func GetFileFromExePath(filePath string) string {
+	content := ""
+
+	// Get exe dir path
+	exePath, err := os.Executable()
+	if err != nil {
+		return content
+	}
+
+	// Get final file path
+	filePath = filepath.Join(filepath.Dir(exePath), "public", "assets", filePath)
+	content, err = GetFileContent(filePath)
+	if err != nil {
+		return content
+	}
+
+	return content
+}
+
 func GetStatusCodeFileContent(status int, path string, content string) string {
 	fileName := strconv.Itoa(status) + ".html"
 	filePath := filepath.Join(path, fileName)
