@@ -89,7 +89,6 @@ func FormDirective(content string, ctx *model.RequestContext) string {
 
 		// Compose session-token
 		zinFormSession += "::" + zinFormId + "::" + ctx.ClientIp + "::" + captchaProvider + "::" + jsonOutput
-		fmt.Printf("ZinFormActionPayload: %s", zinFormSession)
 		token, err := utils.Encrypt(zinFormSession, zinFormId)
 		if err != nil {
 			return SetInlineError(fmt.Sprintf("Failed To Load: %s", match), fmt.Sprintf("Failed to generate form submission token, %v", err))

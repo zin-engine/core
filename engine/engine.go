@@ -84,8 +84,8 @@ func HandleConnection(ctx context.Context, conn net.Conn, root string, version s
 		ctx := ComposeSessionContext(conn, req)
 
 		// Handle form submission
-		if req.Method == http.MethodPost && strings.HasPrefix(path, "/bro-form") {
-			statusCode, content := controller.FormSubmit(req, &ctx)
+		if req.Method == http.MethodPost && strings.HasPrefix(path, "/zin-form") {
+			statusCode, content := controller.HandleFormSubmission(req, &ctx)
 			JsonResponse(conn, statusCode, content)
 			return
 		}
@@ -102,15 +102,24 @@ func HandleConnection(ctx context.Context, conn net.Conn, root string, version s
 	}
 }
 
+func getClientIP(conn net.Conn) string {
+	ip, _, err := net.SplitHostPort(conn.RemoteAddr().String())
+	if err != nil {
+		return conn.RemoteAddr().String()
+	}
+	return ip
+}
+
 func ComposeSessionContext(conn net.Conn, req *http.Request) model.RequestContext {
 	ctx := model.RequestContext{
-		ClientIp:      conn.RemoteAddr().String(),
+		ClientIp:      getClientIP(conn),
 		Method:        req.Method,
 		Host:          req.Host,
 		Path:          req.URL.Path,
 		Root:          rootDir,
 		ContentType:   "text/plain",
 		ContentSource: req.URL.Path,
+		ServerVersion: zinVersion,
 		ServerError:   make(map[string]string),
 		Query:         req.URL.Query(),
 		Headers:       make(map[string]string),
