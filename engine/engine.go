@@ -90,6 +90,9 @@ func HandleConnection(ctx context.Context, conn net.Conn, root string, version s
 			return
 		}
 
+		// Robot.txt & Sitemap configuration -auto generate if not available or older then 24hr
+		config.ComposeRobomap(&ctx)
+
 		// If mine-type is not text/html just return the content as it is
 		if !strings.HasPrefix(ctx.ContentType, "text/html") {
 			SendRawFile(conn, ctx.ContentSource, ctx.ContentType)

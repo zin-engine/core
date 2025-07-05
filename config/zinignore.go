@@ -8,36 +8,27 @@ import (
 
 func CheckZinIgnore(rootDir string, path string) bool {
 	ignoreFile := filepath.Join(rootDir, ".zinignore")
-	path = filepath.Clean(path)
+	path = filepath.ToSlash(filepath.Clean(path))
+	path = strings.TrimPrefix(path, "/")
 
-	if path == "/.zinignore" {
-		return true
-	}
-
-	// As .zinignore is not on root, expose all files
+	// .zinignore isn't at the root? Cool, guess we're open-sourcing the whole damn folder
 	if !utils.FileExists(ignoreFile) {
 		return false
 	}
 
-	// Get .zinignore file content
-	// Block all request, as .zinignore is there but failed to get contents
-	data, err := utils.GetFileContent(ignoreFile)
-	if err != nil {
-		return true
-	}
+	// Load ignored files/dir list
+	ignoreList := loadIgnoreList(rootDir)
 
-	// Split into lines & loop to check if current path is blocked
-	lines := strings.Split(data, "\n")
+	for _, ignore := range ignoreList {
+		ignore = filepath.ToSlash(ignore)
 
-	for _, line := range lines {
-		entry := strings.TrimSpace(line)
-		if entry == "" || strings.HasPrefix(entry, "#") {
-			continue
+		// Exact match
+		if path == ignore {
+			return true
 		}
 
-		// Normalize and compare zinignore entry with the path
-		entry = filepath.Clean("/" + strings.TrimSpace(entry))
-		if entry == path {
+		// Directory prefix match (e.g. components/, static/)
+		if strings.HasSuffix(ignore, "/") && strings.HasPrefix(path, ignore) {
 			return true
 		}
 	}
