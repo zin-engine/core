@@ -5,9 +5,12 @@ import (
 	"html/template"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"zin-engine/utils"
 )
+
+var extractedTitle = ""
 
 // ToDo: Cache pageContent to avoid template parsing on each request
 func GetPageContent(root string, uri string, path string) (string, error) {
@@ -17,7 +20,8 @@ func GetPageContent(root string, uri string, path string) (string, error) {
 	}
 
 	// Collect applicable templates from most specific to root
-	templates := collectTemplates(root, path)
+	extractedTitle = ""
+	templates := collectTemplates(root, uri)
 
 	// If no templates found, return raw content
 	if len(templates) == 0 {
@@ -36,6 +40,9 @@ func GetPageContent(root string, uri string, path string) (string, error) {
 		}
 		tplContent := string(tplBytes)
 
+		// Cache & removed zin-page tags if present in template-content
+		tplContent = ExtractTileFormZinPageTag(tplContent)
+
 		// Check if this is the final wrapping template
 		if strings.Contains(strings.ToLower(tplContent), "<html") {
 			tpl, err := template.New("tpl").Parse(tplContent)
@@ -53,7 +60,7 @@ func GetPageContent(root string, uri string, path string) (string, error) {
 			}
 
 			// Done - This is the final HTML wrapper
-			return rendered.String(), nil
+			return InjectTitleFromZinPage(rendered.String(), uri), nil
 		}
 
 		// Embed and continue upward
@@ -73,12 +80,13 @@ func GetPageContent(root string, uri string, path string) (string, error) {
 		page = rendered.String()
 	}
 
-	return page, nil
+	// Done
+	return InjectTitleFromZinPage(page, uri), nil
 
 }
 
 // collectTemplates walks upward from requestPath to root and gathers existing template.html files.
-func collectTemplates(rootDir, requestPath string) []string {
+func collectTemplates(rootDir string, requestPath string) []string {
 	var templates []string
 	pathParts := strings.Split(filepath.Clean(requestPath), string(os.PathSeparator))
 
@@ -90,4 +98,59 @@ func collectTemplates(rootDir, requestPath string) []string {
 		}
 	}
 	return templates
+}
+
+// Page title
+func InjectTitleFromZinPage(content string, path string) string {
+
+	fmt.Printf("\n>> Page Title: %s", extractedTitle)
+	// Fallback to <title>...</title>
+	if extractedTitle == "" {
+		reTitle := regexp.MustCompile(`(?i)<title>(.*?)</title>`)
+		match := reTitle.FindStringSubmatch(content)
+		if len(match) >= 2 {
+			extractedTitle = match[1]
+		}
+	}
+
+	// If page-title is still blank then set current path as title
+	if extractedTitle == "" {
+		extractedTitle = path
+	}
+
+	// Replace or insert <title>
+	reTitleTag := regexp.MustCompile(`(?i)<title>.*?</title>`)
+	if reTitleTag.MatchString(content) {
+		// Replace existing title
+		content = reTitleTag.ReplaceAllString(content, "<title>"+extractedTitle+"</title>")
+	} else {
+		// Insert <title> inside <head>
+		reHead := regexp.MustCompile(`(?i)<head[^>]*>`)
+		if loc := reHead.FindStringIndex(content); loc != nil {
+			// Insert title right after <head>
+			insertPos := loc[1]
+			content = content[:insertPos] + "\n<title>" + extractedTitle + "</title>" + content[insertPos:]
+		} else {
+			// No <head> found, fallback to prepending title
+			content = "<title>" + extractedTitle + "</title>\n" + content
+		}
+	}
+
+	return content
+}
+
+func ExtractTileFormZinPageTag(content string) string {
+	if !strings.Contains(content, "<zin-page") {
+		return content
+	}
+
+	reZin := regexp.MustCompile(`<zin-page\s+name=["']([^"']+)["']\s*/?>`)
+	match := reZin.FindStringSubmatch(content)
+
+	if len(match) >= 2 {
+		extractedTitle = match[1]
+		content = reZin.ReplaceAllString(content, "")
+	}
+
+	return content
 }

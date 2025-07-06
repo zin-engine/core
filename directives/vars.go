@@ -80,8 +80,6 @@ func ReplaceVariables(content string, ctx *model.RequestContext) string {
 			key = strings.ToUpper(strings.ReplaceAll(key, "process.env.", ""))
 		}
 
-		fmt.Printf("\nKey: %s | Default: %s | ENV: %v", key, defaultVal, isEnv)
-
 		// Get the value
 		resolved := utils.GetValue(ctx, key, defaultVal, isEnv)
 
