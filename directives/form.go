@@ -29,7 +29,7 @@ func FormDirective(content string, ctx *model.RequestContext) string {
 		attrString := subMatches[1]
 		innerContent := subMatches[2]
 		elmSuffix := ""
-		zinFormAttr := parseAttributesAsKeyValue(attrString)
+		zinFormAttr := utils.ExtractAttributesFromTag(attrString)
 		zinFormId := GenerateRandom("MIXED", 32)
 
 		var formAttrs []string
@@ -106,23 +106,6 @@ func FormDirective(content string, ctx *model.RequestContext) string {
 	})
 
 	return content
-}
-
-func parseAttributesAsKeyValue(attr string) map[string]string {
-	// Parse attributes into key-value map
-	attrRe := regexp.MustCompile(`(\w+)\s*=\s*"([^"]*)"`)
-	attributes := attrRe.FindAllStringSubmatch(attr, -1)
-
-	zinFormAttr := make(map[string]string)
-	for _, attr := range attributes {
-		if len(attr) == 3 {
-			key := attr[1]
-			value := attr[2]
-			zinFormAttr[key] = value
-		}
-	}
-
-	return zinFormAttr
 }
 
 func verifyAndGetGoogleCaptchaSiteKey(ctx *model.RequestContext) string {

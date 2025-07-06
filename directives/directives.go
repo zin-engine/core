@@ -24,7 +24,7 @@ func ParseAndApply(content string, ctx *model.RequestContext) string {
 		SetVarDirectives,
 		TimeDirectives,
 		RandomDirective,
-		HashDirective,
+		CryptDirective,
 		DataDirectives,
 		LoopDirectives,
 		FormDirective,

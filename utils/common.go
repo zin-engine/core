@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"html"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
 
@@ -38,4 +39,21 @@ func ComposeInlineErrorContent(title string, content string, path string) string
 func InjectZinScriptAndStyle(content string) string {
 	content = ReplaceContent(content, "</head>", `<script src="/zin-assets/engine.js"></script><link rel="stylesheet" href="/zin-assets/engine.css"></head>`)
 	return content
+}
+
+func ExtractAttributesFromTag(attr string) map[string]string {
+	// Parse attributes into key-value map
+	attrRe := regexp.MustCompile(`(\w+)\s*=\s*"([^"]*)"`)
+	attributes := attrRe.FindAllStringSubmatch(attr, -1)
+
+	zinTagAttr := make(map[string]string)
+	for _, attr := range attributes {
+		if len(attr) == 3 {
+			key := attr[1]
+			value := attr[2]
+			zinTagAttr[key] = value
+		}
+	}
+
+	return zinTagAttr
 }

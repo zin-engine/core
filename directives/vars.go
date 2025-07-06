@@ -55,6 +55,11 @@ func SetVarDirectives(content string, ctx *model.RequestContext) string {
 // Match patterns like {{key}}, {{key.sub-key}}, {{key || "apple"}}
 func ReplaceVariables(content string, ctx *model.RequestContext) string {
 
+	// No vars? No drama. Just return it like a boss.
+	if !strings.Contains(content, "{{") {
+		return content
+	}
+
 	re := regexp.MustCompile(`\{\{\s*([^{}]+?)\s*\}\}`)
 
 	matches := re.FindAllStringSubmatch(content, -1)
