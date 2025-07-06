@@ -1,11 +1,13 @@
 package engine
 
 import (
+	"compress/gzip"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"os"
+	"zin-engine/model"
 	"zin-engine/utils"
 )
 
@@ -56,8 +58,10 @@ func Favicon(conn net.Conn, rootDir string) {
 	io.Copy(conn, f)
 }
 
-func SendRawFile(conn net.Conn, path string, contentType string) {
+func SendRawFile(conn net.Conn, ctx *model.RequestContext) {
 
+	path := ctx.Path
+	contentType := ctx.ContentType
 	fmt.Printf(">> Resolve: %s\n>> ContentType: %s\n", path, contentType)
 
 	// Open the file
@@ -75,16 +79,18 @@ func SendRawFile(conn net.Conn, path string, contentType string) {
 		return
 	}
 
-	// Write headers
-	conn.Write([]byte("HTTP/1.1 200 OK\r\n"))
-	conn.Write([]byte("Content-Type: " + contentType + "\r\n"))
-	conn.Write([]byte(fmt.Sprintf("Content-Length: %d\r\n", info.Size())))
-	conn.Write([]byte("Parser: " + zinVersion + "\r\n"))
-	conn.Write([]byte("Connection: close\r\n"))
-	conn.Write([]byte("\r\n"))
+	// Try compression first
+	if ctx.GzipCompression {
+		err := trySendCompressed(conn, f, contentType)
+		if err == nil {
+			return
+		}
+		// Reset file reader
+		f.Seek(0, io.SeekStart)
+	}
 
-	// Stream the file directly to the client
-	io.Copy(conn, f)
+	// Send uncompressed
+	sendUncompressed(conn, f, contentType, info.Size())
 }
 
 func JsonResponse(conn net.Conn, status int, content string) {
@@ -110,11 +116,87 @@ func Redirect(conn net.Conn, status int, location string) {
 	conn.Write([]byte("\r\n"))
 }
 
-func SendPageContent(conn net.Conn, content string) {
+func SendPageContent(conn net.Conn, content string, ctx *model.RequestContext) {
+
+	// Send uncompressed is not requested
+	if !ctx.GzipCompression {
+		writePlainContent(conn, content)
+		return
+	}
+
+	// Try-sending gzip-compressed content
+	err := writeGzipContent(conn, content)
+	if err != nil {
+		// Send fallback uncompressed response
+		writePlainContent(conn, content)
+	}
+
+}
+
+func writeGzipContent(conn net.Conn, content string) error {
+	// Headers
+	conn.Write([]byte("HTTP/1.1 200 OK\r\n"))
+	conn.Write([]byte("Content-Type: text/html\r\n"))
+	conn.Write([]byte("Content-Encoding: gzip\r\n"))
+	conn.Write([]byte("Parser: " + zinVersion + "\r\n"))
+	conn.Write([]byte("Connection: close\r\n"))
+	conn.Write([]byte("\r\n"))
+
+	// Body
+	gz := gzip.NewWriter(conn)
+	_, err := gz.Write([]byte(content))
+	if err != nil {
+		return fmt.Errorf("error writing gzip content: %w", err)
+	}
+
+	err = gz.Close() // must flush footer
+	if err != nil {
+		return fmt.Errorf("error closing gzip writer: %w", err)
+	}
+
+	return nil
+}
+
+func writePlainContent(conn net.Conn, content string) {
 	conn.Write([]byte("HTTP/1.1 200 OK\r\n"))
 	conn.Write([]byte("Content-Type: text/html\r\n"))
 	conn.Write([]byte(fmt.Sprintf("Content-Length: %d\r\n", len(content))))
+	conn.Write([]byte("Connection: close\r\n"))
 	conn.Write([]byte("Parser: " + zinVersion + "\r\n"))
 	conn.Write([]byte("\r\n"))
 	conn.Write([]byte(content))
+}
+
+func sendUncompressed(conn net.Conn, f *os.File, contentType string, contentLength int64) {
+	conn.Write([]byte("HTTP/1.1 200 OK\r\n"))
+	conn.Write([]byte("Content-Type: " + contentType + "\r\n"))
+	conn.Write([]byte(fmt.Sprintf("Content-Length: %d\r\n", contentLength)))
+	conn.Write([]byte("Connection: close\r\n"))
+	conn.Write([]byte("Parser: " + zinVersion + "\r\n"))
+	conn.Write([]byte("\r\n"))
+	io.Copy(conn, f)
+}
+
+func trySendCompressed(conn net.Conn, f *os.File, contentType string) error {
+	// Headers
+	conn.Write([]byte("HTTP/1.1 200 OK\r\n"))
+	conn.Write([]byte("Content-Type: " + contentType + "\r\n"))
+	conn.Write([]byte("Content-Encoding: gzip\r\n"))
+	conn.Write([]byte("Parser: " + zinVersion + "\r\n"))
+	conn.Write([]byte("Connection: close\r\n"))
+	conn.Write([]byte("\r\n"))
+
+	gz := gzip.NewWriter(conn)
+	defer gz.Close()
+
+	// Try flushing header
+	if err := gz.Flush(); err != nil {
+		return fmt.Errorf("failed to flush gzip header: %w", err)
+	}
+
+	if _, err := io.Copy(gz, f); err != nil {
+		return fmt.Errorf("gzip copy failed:: %w", err)
+	}
+
+	return nil
 }

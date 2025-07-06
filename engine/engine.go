@@ -68,11 +68,6 @@ func HandleConnection(ctx context.Context, conn net.Conn, root string, version s
 			return
 		}
 
-		// Handle zin-default paths
-		if HandleDefaultLoads(conn, req) {
-			return
-		}
-
 		// Get file to serve & check if listed in .zinignore
 		path := utils.GetFilePathFromURI(req.URL.Path)
 		if config.CheckZinIgnore(rootDir, path) {
@@ -82,6 +77,11 @@ func HandleConnection(ctx context.Context, conn net.Conn, root string, version s
 
 		// Compose session content
 		ctx := ComposeSessionContext(conn, req)
+
+		// Handle zin-default paths
+		if HandleDefaultLoads(conn, req, &ctx) {
+			return
+		}
 
 		// Handle form submission
 		if req.Method == http.MethodPost && strings.HasPrefix(path, "/zin-form") {
@@ -95,7 +95,7 @@ func HandleConnection(ctx context.Context, conn net.Conn, root string, version s
 
 		// If mine-type is not text/html just return the content as it is
 		if !strings.HasPrefix(ctx.ContentType, "text/html") {
-			SendRawFile(conn, ctx.ContentSource, ctx.ContentType)
+			SendRawFile(conn, &ctx)
 			return
 		}
 
@@ -131,9 +131,10 @@ func ComposeSessionContext(conn net.Conn, req *http.Request) model.RequestContex
 			JSON: make(map[string]map[string]any),
 			LIST: make(map[string][]any),
 		},
-		ENV:      config.LoadEnvironmentVars(rootDir),
-		LocalVar: make(map[string]string),
-		SqlConn:  nil,
+		ENV:             config.LoadEnvironmentVars(rootDir),
+		LocalVar:        make(map[string]string),
+		SqlConn:         nil,
+		GzipCompression: false,
 	}
 
 	// Update context according to request data
@@ -146,10 +147,13 @@ func ComposeSessionContext(conn net.Conn, req *http.Request) model.RequestContex
 	ctx.ContentSource = filepath.Join(rootDir, filepath.FromSlash(path))
 	ctx.ContentType = utils.GetMineTypeFromPath(path)
 
+	// Check for gzip support
+	ctx.GzipCompression = strings.Contains(ctx.Headers["Accept-Encoding"], "gzip")
+
 	return ctx
 }
 
-func HandleDefaultLoads(conn net.Conn, req *http.Request) bool {
+func HandleDefaultLoads(conn net.Conn, req *http.Request, ctx *model.RequestContext) bool {
 	// Favicon icon request
 	if req.URL.Path == "/favicon.ico" {
 		Favicon(conn, rootDir)
@@ -157,14 +161,14 @@ func HandleDefaultLoads(conn net.Conn, req *http.Request) bool {
 	}
 
 	if req.URL.Path == "/zin-assets/engine.css" {
-		path := utils.GetExeAssetPath("engine.css")
-		SendRawFile(conn, path, "text/css")
+		ctx.Path = utils.GetExeAssetPath("engine.css")
+		SendRawFile(conn, ctx)
 		return true
 	}
 
 	if req.URL.Path == "/zin-assets/engine.js" {
-		path := utils.GetExeAssetPath("engine.js")
-		SendRawFile(conn, path, "text/javascript")
+		ctx.Path = utils.GetExeAssetPath("engine.js")
+		SendRawFile(conn, ctx)
 		return true
 	}
 
@@ -200,7 +204,7 @@ func HandleSourceRender(conn net.Conn, req *http.Request, ctx *model.RequestCont
 	}
 
 	// Finally Load Page Content
-	SendPageContent(conn, content)
+	SendPageContent(conn, content, ctx)
 }
 
 func HandleExistenceAndRedirect(conn net.Conn, req *http.Request, ctx *model.RequestContext) bool {
@@ -226,7 +230,7 @@ func HandleExistenceAndRedirect(conn net.Conn, req *http.Request, ctx *model.Req
 		// If not a HTML file the render it as raw
 		routeMimeType := utils.GetMineTypeFromPath(route.Path)
 		if !strings.HasPrefix(routeMimeType, "text/html") {
-			SendRawFile(conn, route.Path, routeMimeType)
+			SendRawFile(conn, ctx)
 			return true
 		}
 
