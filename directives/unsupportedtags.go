@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strings"
 	"zin-engine/model"
+	"zin-engine/utils"
 )
 
 func HighlightUnsupportedTags(content string, ctx *model.RequestContext) string {
@@ -17,7 +18,11 @@ func HighlightUnsupportedTags(content string, ctx *model.RequestContext) string 
 	rg := regexp.MustCompile(`<zin\b[^>]*\/?>`)
 	matches := rg.FindAllString(content, -1)
 	for _, tag := range matches {
-		replace := SetInlineError(fmt.Sprintf("Failed To Load: %s", tag), fmt.Sprintf("Unrecognized or malformed %s tag detected. It may be due to a typo, missing attributes, or use of an unsupported tag. For guidance, please refer to the official Zin tag documentation.", tag))
+		replace, err := utils.RunExternalModules(ctx.Root, tag)
+		if err != nil {
+			replace = SetInlineError(fmt.Sprintf("Failed To Load: %s", tag), fmt.Sprintf("Oops! %v.", err))
+		}
+
 		content = strings.Replace(content, tag, replace, 1)
 	}
 
