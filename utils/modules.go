@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -36,11 +37,18 @@ func RunExternalModules(rootDir string, tag string) (string, error) {
 		return "", fmt.Errorf("unrecognized or malformed '%s' tag detected. It may be due to a typo, missing attributes, or use of an unsupported tag. For guidance, please refer to the official Zin tag documentation", tag)
 	}
 
+	// Define a 10-second timeout context
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
 	// Run external formatter with full tag input
-	cmd := exec.Command(exePath)
+	cmd := exec.CommandContext(ctx, exePath)
 	cmd.Stdin = strings.NewReader(tag)
 
 	output, err := cmd.Output()
+	if ctx.Err() == context.DeadlineExceeded {
+		return "", fmt.Errorf("external module '%s' timed out after 10 seconds", tag)
+	}
 	if err != nil {
 		return "", fmt.Errorf("an error occurred while running external module '%s'. Error: %v", tagName, err.Error())
 	}
