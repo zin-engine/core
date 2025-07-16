@@ -60,7 +60,7 @@ func Favicon(conn net.Conn, rootDir string) {
 
 func SendRawFile(conn net.Conn, ctx *model.RequestContext) {
 
-	path := ctx.Path
+	path := ctx.ContentSource
 	contentType := ctx.ContentType
 	fmt.Printf(">> Resolve: %s\n>> ContentType: %s\n", path, contentType)
 
