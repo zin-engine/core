@@ -50,21 +50,9 @@ func HandleConnection(ctx context.Context, conn net.Conn, root string, version s
 			rootDir = root
 		}
 
-		// In case client is visiting 127.0.0.*:900* & root is not configured
-		if rootDir == "" && req.URL.Path == "/" && (strings.Contains(req.Host, "127.0.0") || strings.Contains(req.Host, "host:900")) {
-			PrintErrorOnClient(conn, 200, "/", "")
-			return
-		}
-
 		// Handle other route when root-dir is not configured
 		if rootDir == "" {
 			PrintErrorOnClient(conn, 500, req.URL.Path, "Missing X-Root-Dir on nginx server configuration.")
-			return
-		}
-
-		// Only GET & POST req.methods are allowed
-		if req.Method != "GET" && req.Method != "POST" {
-			PrintErrorOnClient(conn, 405, req.URL.Path, "Oops! Method Not Allowed")
 			return
 		}
 
@@ -78,15 +66,21 @@ func HandleConnection(ctx context.Context, conn net.Conn, root string, version s
 		// Compose session content
 		ctx := ComposeSessionContext(conn, req)
 
-		// Handle zin-default paths
-		if HandleDefaultLoads(conn, req, &ctx) {
-			return
-		}
-
 		// Handle form submission
 		if req.Method == http.MethodPost && strings.HasPrefix(path, "/zin-form") {
 			statusCode, content := controller.HandleFormSubmission(req, &ctx)
 			JsonResponse(conn, statusCode, content)
+			return
+		}
+
+		// Only req.methods type:GET is allowed
+		if req.Method != http.MethodGet {
+			PrintErrorOnClient(conn, 405, req.URL.Path, "")
+			return
+		}
+
+		// Handle zin-default paths
+		if HandleDefaultLoads(conn, req, &ctx) {
 			return
 		}
 
@@ -211,7 +205,11 @@ func HandleExistenceAndRedirect(conn net.Conn, req *http.Request, ctx *model.Req
 	if !utils.FileExists(ctx.ContentSource) {
 		route, err := config.GetReWriteTarget(ctx.Root, req.URL.Path)
 		if err != nil {
-			PrintErrorOnClient(conn, 404, req.URL.Path, fmt.Sprintf("Error: Unable to find file at `%s`.", req.URL.Path))
+			statusCode := 404
+			if req.URL.Path == "/" {
+				statusCode = 200
+			}
+			PrintErrorOnClient(conn, statusCode, req.URL.Path, fmt.Sprintf("Error: Unable to find file at `%s`.", req.URL.Path))
 			return true
 		}
 

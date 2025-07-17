@@ -138,3 +138,14 @@ func GetExeAssetPath(file string) string {
 	file = filepath.Join(filepath.Dir(exePath), "public", "assets", file)
 	return file
 }
+
+func GetCurrentWorkingDir(rootDir string) string {
+	// If -r is not provided, try to set it to current working directory
+	if rootDir == "" {
+		if cwd, err := os.Getwd(); err == nil {
+			rootDir = cwd
+		}
+	}
+
+	return rootDir
+}

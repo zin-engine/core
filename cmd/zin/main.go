@@ -18,6 +18,9 @@ func main() {
 	port := flag.String("p", "9001", "Port to listen on")
 	rootDir := flag.String("r", "", "Root directory path")
 
+	// Check if -r is not provided, try to set it to current working directory
+	*rootDir = utils.GetCurrentWorkingDir(*rootDir)
+
 	// Parse command-line flags
 	flag.Parse()
 	utils.PrintASCII(*port, *rootDir, zinVersion)
